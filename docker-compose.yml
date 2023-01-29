@@ -5,7 +5,6 @@ services:
     hostname: jupyter
     ports:
       - "8888:8888"
-      - "4040:4040"
     networks:
       - spark-network
     restart: always
@@ -48,11 +47,12 @@ services:
         read_only: false
 
 
+
   spark-master:
     image: kagaston/spark:3.3.1
     hostname: spark-master
     ports:
-      - "9090:8080"
+      - "8080:8080"
       - "7077:7077"
     networks:
       - spark-network
@@ -74,7 +74,7 @@ services:
     image: kagaston/spark:3.3.1
     hostname: spark-worker
     deploy:
-      replicas: 10
+      replicas: 2
     ports:
       - "8080"
       - "7000"
@@ -100,33 +100,26 @@ services:
         source: ./spark/data
         target: /opt/spark-data
         read_only: false
-
-  proxy:
-    image: nginx
-    volumes:
-      - type: bind
-        source: ./nginx/jupyter_lab.conf
-        target: /etc/nginx/sites.enabled/jupyter_lab.conf
-        read_only: true
-    ports:
-      - "80:80"
-      - "443:443"
-    networks:
-      - proxy-gateway
-    depends_on:
-      - jupyter
-    restart: always
+#
+#  proxy:
+#    image: nginx
+#    volumes:
+#      - type: bind
+#        source: ./nginx/jupyter_lab.conf
+#        target: /etc/nginx/sites.enabled/jupyter_lab.conf
+#        read_only: true
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    networks:
+#      - proxy-gateway
+#    depends_on:
+#      - jupyter
+#    restart: always
 
 
 networks:
   spark-network:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.10.0.0/24
-
-  proxy-gateway:
     driver: bridge
     ipam:
       config:
