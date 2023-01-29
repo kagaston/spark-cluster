@@ -1,0 +1,134 @@
+#version: "3.9" # optional since v1.27.0
+services:
+  jupyter:
+    image: kagaston/jupyter:3.3.1
+    hostname: jupyter
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    networks:
+      - spark-network
+    restart: always
+    volumes:
+      - type: bind
+        source: ./jupyter/workspace/notebooks
+        target: /opt/workspace/notebooks
+        read_only: false
+      - type: bind
+        source: ./jupyter/workspace/data
+        target: /opt/workspace/data
+        read_only: false
+      - type: bind
+        source: ./jupyter/config/apputils-extension
+        target: /home/jupyter/.jupyter/lab/user-settings/@jupyterlab/apputils-extension
+        read_only: false
+      - type: bind
+        source: ./jupyter/config/codemirror-extension
+        target: /home/jupyter/.jupyter/lab/user-settings/@jupyterlab/codemirror-extension
+        read_only: false
+      - type: bind
+        source: ./jupyter/config/console-extension
+        target: /home/jupyter/.jupyter/lab/user-settings/@jupyterlab/console-extension
+        read_only: false
+      - type: bind
+        source: ./jupyter/config/fileeditor-extension
+        target: /home/jupyter/.jupyter/lab/user-settings/@jupyterlab/fileeditor-extension
+        read_only: false
+      - type: bind
+        source: ./jupyter/config/notebook-extension
+        target: /home/jupyter/.jupyter/lab/user-settings/@jupyterlab/notebook-extension
+        read_only: false
+      - type: bind
+        source: ./jupyter/config/terminal-extension
+        target: /home/jupyter/.jupyter/lab/user-settings/@jupyterlab/terminal-extension
+        read_only: false
+      - type: bind
+        source: ./jupyter/config/lab-config
+        target: /home/jupyter/.jupyter/
+        read_only: false
+
+
+  spark-master:
+    image: kagaston/spark:3.3.1
+    hostname: spark-master
+    ports:
+      - "9090:8080"
+      - "7077:7077"
+    networks:
+      - spark-network
+    restart: always
+    volumes:
+      - type: bind
+        source: ./spark/apps
+        target: /opt/spark-apps
+        read_only: false
+      - type: bind
+        source: ./spark/data
+        target: /opt/spark-data
+        read_only: false
+    environment:
+      SPARK_LOCAL_IP: spark-master
+      SPARK_WORKLOAD: master
+
+  spark-worker:
+    image: kagaston/spark:3.3.1
+    hostname: spark-worker
+    deploy:
+      replicas: 10
+    ports:
+      - "8080"
+      - "7000"
+    networks:
+      - spark-network
+    depends_on:
+      - spark-master
+    restart: always
+    environment:
+      SPARK_MASTER: spark://spark-master:7077
+      SPARK_WORKER_CORES: 1
+      SPARK_WORKER_MEMORY: 1G
+      SPARK_DRIVER_MEMORY: 1G
+      SPARK_EXECUTOR_MEMORY: 1G
+      SPARK_WORKLOAD: worker
+      SPARK_LOCAL_IP: spark-worker
+    volumes:
+      - type: bind
+        source: ./spark/apps
+        target: /opt/spark-apps
+        read_only: false
+      - type: bind
+        source: ./spark/data
+        target: /opt/spark-data
+        read_only: false
+
+  proxy:
+    image: nginx
+    volumes:
+      - type: bind
+        source: ./nginx/jupyter_lab.conf
+        target: /etc/nginx/sites.enabled/jupyter_lab.conf
+        read_only: true
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - proxy-gateway
+    depends_on:
+      - jupyter
+    restart: always
+
+
+networks:
+  spark-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.10.0.0/24
+
+  proxy-gateway:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
